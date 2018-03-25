@@ -83,15 +83,18 @@ for i in range (0,len(final_url)):
 
 #dictionary
 list_reviews = []
-
+review_id = 0
 
 for i in range (0,len(no_ques3_final)):    
     c=no_ques3_final[i]
     site = requests.get(c);
-    review_id = 0
+
     if site.status_code is 200:
         soup = BeautifulSoup(site.content, 'html.parser')
         
+        #find list of all associated tag links
+        tagLinks = soup.find(class_ = 'post-taglist').select('a')
+
         #incrementing the id
         review_id += 1
          
@@ -105,8 +108,17 @@ for i in range (0,len(no_ques3_final)):
         review.url =   soup.find(class_='question-hyperlink').get('href').strip()
         review.views = str(soup.find(class_='module question-stats').findAll('b')[1].get_text(strip=True)).replace('times','')
         review.score = soup.find(class_='vote-count-post ').get_text(strip=True)
+        review.subtags  = [ tags.get_text() for tags  in tagLinks ]
+        
+        review_anchor = (soup.find(class_ = 'user-details').find('a'))
+        if(review_anchor is not None ):
+            review.postedby = review_anchor.get_text()
+        
+        review.question_date = (soup.find(class_ = 'user-action-time').select('span')[0])['title']
+        
         try:
             review.answer = soup.find("div", class_="answercell post-layout--right").find("div", class_="post-text").get_text(strip=True)
+            review.answer_date = (soup.find("div", class_="answercell post-layout--right").find("div", class_="user-action-time").select('span')[0])['title']
         except:
             pass
         
