@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Mar 22 12:19:06 2018
-
 @author: BIA-660 Team 2
-
 Code for scrapping questions and answers from stackoverflow
 Scrapoing dynamic content : Selenium
 Scrapping static contetnt : Beautiful soup
 """
+
 import classes
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -17,12 +16,21 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 import time
+from IPython.core.interactiveshell import InteractiveShell
+InteractiveShell.ast_node_interactivity = "all"
+import string
+from nltk.corpus import stopwords
+import nltk
+from nltk.stem.porter import PorterStemmer
+import numpy as np
+import pandas as pd
+from scipy.spatial import distance
 
 #Required column attributes
 columns = ['id','question','question_date','question_desc','answer','answer_date','score','postedby','views','subtags','url']
 
 #initializing chrome driver
-driver = webdriver.Chrome(executable_path= 'C:/Users/Shreyas/Desktop/chromedriver_win32/chromedriver')
+driver = webdriver.Chrome(executable_path= 'C:/Users/sarvesh/Downloads/chromedriver_win32/chromedriver')
 
 driver.get("https://stackoverflow.com/")
 # Wait 20 seconds for page to load
@@ -43,6 +51,8 @@ driver.find_element_by_xpath('//*[@title="show 50 items per page"]').click()
 
 list_reviews = []
 review_id = 0
+
+#getting tags into the list
 
 while True:    
     links=[]
@@ -139,9 +149,81 @@ while True:
 
 
 #writing the populated list into csv
-with open ("so-reviews.csv",'w',encoding="utf-8") as file:    
+with open('so-reviews.csv', 'w',encoding="utf-8",newline='',) as file:
+      
     print("writing {0} reviews in file so-reviews.csv.. ".format(len(list_reviews)))
     writer = csv.DictWriter(file, fieldnames = columns, delimiter = ',')
     writer.writeheader()
     for row in list_reviews:
         writer.writerow(row.to_dict())
+
+
+
+
+
+def get_doc_tokens(doc,normalize):
+    
+    # gets the stop_words
+    stop_words = stopwords.words('english')
+    porter_stemmer = PorterStemmer()
+    if normalize=="stem":
+        tokens=[porter_stemmer.stem(token.strip())  for token in nltk.word_tokenize(doc.lower())                 if token.strip() not in stop_words and                   token.strip() not in string.punctuation]
+        
+    else:
+        tokens=[token.strip()                 for token in nltk.word_tokenize(doc.lower())                 if token.strip() not in stop_words and                   token.strip() not in string.punctuation]
+        
+    
+    
+    token_count={token:tokens.count(token) for token in set(tokens)}
+    
+    
+    return token_count
+
+def tfidf(docs,normalize):
+    
+    #  process all documents to get list of token list
+    docs_tokens={idx:get_doc_tokens(doc,normalize)              for idx,doc in enumerate(docs)}
+
+    # get document-term matrix
+    dtm=pd.DataFrame.from_dict(docs_tokens, orient="index" )
+    dtm=dtm.fillna(0)
+      
+    # get normalized term frequency (tf) matrix        
+    tf=dtm.values
+    doc_len=tf.sum(axis=1)
+    tf=np.divide(tf.T, doc_len).T
+    
+    # get idf
+    df=np.where(tf>0,1,0)
+    
+   
+
+    smoothed_idf=np.log(np.divide(len(docs)+1, np.sum(df, axis=0)+1))+1    
+    smoothed_tf_idf=tf*smoothed_idf
+    
+    # finds the similarity among documents
+    
+    similarity = 1-distance.squareform(distance.pdist(smoothed_tf_idf, 'cosine'))
+    similar_docs = np.argsort(similarity)[:,::-1][0,0:7]
+    
+    #prints top six documents equivalent to the recived indexes
+    print(similar_docs)
+    
+    for idx,doc in enumerate(docs):
+        if idx in similar_docs:
+            print(idx,doc)
+    
+    
+    return None
+
+if __name__ == "__main__":
+    docs=[]
+    with open("so-reviews.csv","r",encoding="utf-8") as f:
+        reader=csv.reader(f)
+        
+        for line in reader:
+            docs.append(line[4])
+    print("\n Reviews with Stemming \n ")
+    
+    tfidf(docs,"stem")
+
