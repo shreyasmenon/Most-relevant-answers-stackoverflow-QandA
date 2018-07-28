@@ -3,7 +3,7 @@ BIA 660 project
 
 This project would suggest the best possible answer to the requested question by the user and would help users twofold first it would save the search timing and secondly offers the relevant answers to the problem.
 
-Steps 
+Steps : 
 1.Knowledge base
 Web Scrapping -> Data cleansing & Structuring ->Comparison of Multilabel Classification model -> Best classification model for prediction  
 
